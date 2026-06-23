@@ -1,7 +1,8 @@
 # LSST Alert Stream Simulator (lass)
 
-`lass` simulates Legacy Survey of Space and Time (LSST) alerts, creates a Kafka broker, and sends them to it. Scripts or external tools can then be used to ingest the alerts from the lass broker
-This simulates the community broker architecture. 
+`lass` simulates alerts from the [Legacy Survey of Space and Time (LSST)](https://rubinobservatory.org/explore/how-rubin-works/lsst). It also creates a Kafka broker in a container using docker, and sends the alerts to it. Scripts or external tools can then be used to ingest the alerts from the lass broker.
+
+This simulates the community alert broker architecture. More information on the community alert brokers is available [here](https://rubinobservatory.org/for-scientists/data-products/alerts-and-brokers). 
 
 The goal of `lass` is to serve as a tool for stress testing databases that store LSST alerts. One such database is [LSST-DESC's FASTDB](https://github.com/LSSTDESC/FASTDB).
 
