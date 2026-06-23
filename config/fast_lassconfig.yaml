@@ -1,0 +1,17 @@
+schemafile: /code/share/avsc/fastdb_test_0.1.BrokerMessage.avsc
+
+brokers:
+  - name: "lass-broker"
+    class: BrokerConsumer
+    server: localhost:9092
+    topics: [ "lass-topic" ]
+    groupid: lass-test
+    collection: stress_apr2025_3
+    loggername: lass-broker
+    loggername_prefix: ""
+    updatetopics: false
+    restart_time_min: 10
+    max_restarts: null
+    notopic_sleeptime_sec: 5
+    extraconfig: {}
+
