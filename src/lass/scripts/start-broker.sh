@@ -1,6 +1,7 @@
 #!/bin/sh
 #docker run -d -p 9092:9092 --name lassbroker apache/kafka:latest
 
+echo "Created container with ID: \t\c"
 docker run -d -p 9092:9092 -p 19092:19092 \
   --name lassbroker \
   -e KAFKA_NODE_ID=1 \
@@ -17,7 +18,10 @@ docker run -d -p 9092:9092 -p 19092:19092 \
   -e KAFKA_NUM_PARTITIONS=1 \
   apache/kafka:latest
 
-docker network connect fastdb_default lassbroker
+echo "Created network with ID: \t\c"
+# docker network connect fastdb_default lassbroker
+docker network create lassnet # user-defined bridge
+docker network connect lassnet lassbroker
 sleep 2 # silence some warnings
 docker exec --workdir /opt/kafka/bin/ -it lassbroker sh -c \
     "./kafka-topics.sh --bootstrap-server localhost:9092 --create --topic lass-topic"

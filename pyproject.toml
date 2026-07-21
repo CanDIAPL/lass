@@ -21,4 +21,4 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.uv.sources]
-lsst-alert-packet = { git = "https://github.com/CanDIAPL/alert_packet.git" }
+lsst-alert-packet = { git = "https://github.com/CanDIAPL/alert_packet.git", rev = '6e73a8b'}

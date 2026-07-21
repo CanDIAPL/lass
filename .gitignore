@@ -1,3 +1,6 @@
 .DS_Store
 *.log
 *.swp
+src/lass/schema.definition
+plots/*
+*__pycache__*

@@ -1,14 +1,27 @@
+import argparse
+import importlib.metadata
 import json
 import pickle
-import secrets, random
+import random
+import secrets
+import subprocess
+from importlib import resources
+from pathlib import PosixPath
 
 import lsst.alert.packet as lap
 import matplotlib.pyplot as plt
 import numpy as np
 from confluent_kafka import Producer
+from numpy.ma.core import sort
 from tqdm import tqdm
+from typing import Any, Callable, Dict, Tuple
 
-def delivery_report(err, msg):
+def _get_ref(*args) -> PosixPath:
+    """Return the package resource file path object.
+    """
+    return resources.files("lass").joinpath(*args)
+
+def _delivery_report(err, msg):
     """Called once for each message produced to indicate delivery result.
     Triggered by poll() or flush()."""
     if err is not None:
@@ -18,8 +31,7 @@ def delivery_report(err, msg):
         return "Message delivered to {} [{}]".format(msg.topic(), msg.partition())
 
 def randomSmallInt():
-    """Provide a random value of the Avro (32 bit, signed) `int` type.
-    """
+    """Provide a random value of the Avro (32 bit, signed) `int` type."""
     return int(np.random.randint(-2**15, 2**15 - 1, dtype=np.int16))
 
 def pprint_alert(alert: dict, save=False):
@@ -38,50 +50,93 @@ def plotAlertSizeDistibution(alertsizes):
     plt.savefig("fig_size_dist.png")
     plt.show()
 
-# if __name__ == "__main__":
-def main(): # entry point for lass cli tool
-    numAlerts = 10000  # a few seconds worth of alerts
+def default_fastdb_writer(alert: dict[str, Any]):
+    """ Modify alerts to fit FASTDB schema. """
+    if alert['diaSource']['band']: # FASTDB stores band as char(1) not string
+        alert['diaSource']['band'] = random.choice(['u', 'g', 'r', 'i', 'z', 'y'])
+    alert['diaSource']['detector'] = randomSmallInt()
+
+    # Match IDs
+    alert['diaObject']['diaObjectId'] = secrets.randbits(63)
+    alert['diaSource']['diaObjectId'] = alert['diaObject']['diaObjectId']
+    alert['diaSourceId'] = secrets.randbits(63)
+    alert['diaSource']['diaSourceId'] = alert['diaSourceId']
+    return alert
+
+def generate(
+    alertwriter : Callable[dict[str, Any], dict[str, Any]] = default_fastdb_writer,
+    numalerts : int = 10000,
+    nprvdiasources : int | tuple[int, int] = 0,
+    schema_ver: tuple[int, int] = (10,0),
+    plotsizes: bool = False,
+    save: bool = False
+):
+    """Generate LSST alerts.
+
+    Args:
+    ---
+        alertwriter (Callable[dict]): A callable function that writes data to the alert content. By default uses
+            `default_fastdb_writer`.
+        numalerts (int): The number of alerts to generate.
+        schema_ver (Tuple[int, int]): Tuple of (major_version, minor_version). (default: (10, 0)).
+
+    Returns:
+    ---
+        alerts (List[dict]) : A list of the generated alerts. Each alert is a dictionary with fields
+            defined by the LSST schema used.
+        alertsizes (List[float)]): a list of the alert sizes in kilobytes (1kB = 1024 bits).
+
+    """
     alerts = []
+    schemafile = lap.get_schema_path(*schema_ver) + f"/lsst.v{schema_ver[0]}_{schema_ver[1]}.alert.avsc"
     schema = lap.Schema.from_file(
-        # filename='/Users/mchamma/dev/alert_packet/schema/10/0/lsst.v10_0.alert.avsc'
-        filename='../../config/lsst.v10_0.alert.avsc'
+        filename=schemafile
     )
     print(f"Schema: {schema.definition['name']}")
 
+    arrayCount = {}
+    if type(nprvdiasources) == int:
+        if nprvdiasources > 0:
+            arrayCount = {
+                'prvDiaSources': nprvdiasources
+                # 'prvDiaForcedSources': 100//12, # unimplemented
+            }
+    elif type(nprvdiasources) != int and len(nprvdiasources) == 2:
+        nprvdiasources = tuple(sorted(nprvdiasources))
+    else:
+        raise ValueError("nprvdiasources must be an integer or 2-tuple of ints.")
+
     alertsizes = []
-    for i in tqdm(range(0, numAlerts), desc="Generating alerts"):
+    for i in tqdm(range(0, numalerts), desc="Generating alerts"):
+        if type(nprvdiasources) != int and len(nprvdiasources) == 2:
+            # draw a random number of prvDiaSources to generate based on range given
+            arrayCount['prvDiaSources'] = random.choice(
+                range(nprvdiasources[0], nprvdiasources[1]+1)
+            )
+
         alert = lap.simulate_alert(
             schema.definition,
             keepNull=['ssObject', 'ssSource', 'mpc_orbits'],
-            arrayCount={ # simulate_alert does not seem to correctly implement this
-                # 'prvDiaSources': 100,
-                # 'prvDiaForcedSources': 100//12,
-                # 'prvDiaNondetectionLimits': 0
-            }
+            arrayCount=arrayCount
         )
 
-        ### Modify alerts to fit FASTDB schema
-        if alert['diaSource']['band']: # FASTDB stores band as char(1) not string
-            alert['diaSource']['band'] = random.choice(['u', 'g', 'r', 'i', 'z', 'y'])
-        alert['diaSource']['detector'] = randomSmallInt()
-
-        # Match IDs
-        alert['diaObject']['diaObjectId'] = secrets.randbits(63)
-        alert['diaSource']['diaObjectId'] = alert['diaObject']['diaObjectId']
-        alert['diaSourceId'] = secrets.randbits(63)
-        alert['diaSource']['diaSourceId'] = alert['diaSourceId']
-        ###
+        alert = alertwriter(alert)
+        # pprint_alert(alert, save=True); exit()
 
         alerts.append(alert)
         alertsizes.append(len(pickle.dumps(alert))/1024)
 
-    # plotAlertSizeDistibution(alertsizes)
-    # pprint_alert(alerts[0], save=True)
-    # exit()
+    return alerts, alertsizes
 
-
+def send(
+    alerts: list[dict[str, Any]],
+    server: str = "localhost:19092",
+    topic: str = "lass-topic"
+):
+    if len(alerts) == 0:
+        return
     p = Producer({
-        "bootstrap.servers": "localhost:19092"
+        "bootstrap.servers": server
     })
 
     pbar = tqdm(alerts)
@@ -93,11 +148,115 @@ def main(): # entry point for lass cli tool
         # be triggered from the call to poll() above, or flush() below, when the
         # message has been successfully delivered or failed permanently.
         p.produce(
-            "lass-topic",
+            topic,
             pickle.dumps(alert),
-            callback=lambda e, m: pbar.set_description(delivery_report(e, m)),
+            callback=lambda e, m: pbar.set_description(_delivery_report(e, m)),
         )
 
     # Wait for any outstanding messages to be delivered and delivery report
     # callbacks to be triggered.
     p.flush()
+
+def startbroker():
+    ref = _get_ref('scripts', 'start-broker.sh')
+    subprocess.run(ref)
+
+def removebroker():
+    ref = _get_ref('scripts', 'remove-broker.sh')
+    subprocess.run(ref)
+
+class RawAndDefaultsHelpFormatter( # ty https://stackoverflow.com/questions/61324536/
+    argparse.RawDescriptionHelpFormatter, argparse.ArgumentDefaultsHelpFormatter
+):
+    pass
+
+def main(): # entry point for lass cli tool
+    parser = argparse.ArgumentParser(
+        "lass",
+        description="""
+▄▄     ▄▄▄   ▄▄▄▄  ▄▄▄▄
+██    ██▀██ ███▄▄ ███▄▄
+██▄▄▄ ██▀██ ▄▄██▀ ▄▄██▀
+LSST Alert Stream Simulator
+Simulate a Rubin LSST Alert Broker with fake alerts and a kafka stream.""", # font is ANSI compact
+        formatter_class=RawAndDefaultsHelpFormatter
+    )
+    parser.add_argument(
+        "-n",
+        "--numalerts",
+        type=int,
+        default=10, # a few seconds worth of alerts (10000)
+        help="Number of alerts to generate."
+    )
+    parser.add_argument(
+        "-p",
+        "--prvdiasources",
+        type=int,
+        default=0,
+        help="Maximum number of prvDiaSources to generate in each alert. Actual number is random."
+    )
+    parser.add_argument(
+        "-f",
+        "--fixed-prvdiasources",
+        action="store_true",
+        help="If set, all alerts will have the same number of prvDiaSources supplied."
+    )
+    parser.add_argument(
+        "-s",
+        "--schemaversion",
+        type=int,
+        default=10,
+        help="The major version of the LSST alert schema to use. Defaults to v10 and the earliest minor version (i.e. v10-0)."
+    )
+    parser.add_argument('-v', '--version', action='version', version=importlib.metadata.version('lass'))
+    parser.add_argument(
+        '--quit',
+        action='store_true',
+        help="Remove lass's kafka broker (along with the simulated alerts)",
+    )
+    parser.add_argument('--skipbroker', action='store_true', help="If set, do not start a kafka broker.")
+    args = parser.parse_args()
+
+    if args.quit:
+        removebroker()
+        exit()
+
+    ###
+    numalerts = args.numalerts
+    schema_ver = (args.schemaversion, 0) # (Major, Minor)
+
+    alerts, _ = generate(
+        numalerts=numalerts,
+        schema_ver=schema_ver,
+        nprvdiasources=(0, args.prvdiasources) if args.fixed_prvdiasources else args.prvdiasources
+    )
+
+    cmd_dps = subprocess.run("docker ps | grep lassbroker | wc -l", shell=True, capture_output=True)
+    is_lassbroker_running = (
+        int(cmd_dps.stdout) > 0
+    )
+    if not is_lassbroker_running and not args.skipbroker:
+        startbroker()
+
+    send(alerts)
+    # p = Producer({
+    #     "bootstrap.servers": "localhost:19092"
+    # })
+
+    # pbar = tqdm(alerts)
+    # for alert in pbar:
+    #     # Trigger any available delivery report callbacks from previous produce() calls
+    #     p.poll(0)
+
+    #     # Asynchronously produce a message. The delivery report callback will
+    #     # be triggered from the call to poll() above, or flush() below, when the
+    #     # message has been successfully delivered or failed permanently.
+    #     p.produce(
+    #         "lass-topic",
+    #         pickle.dumps(alert),
+    #         callback=lambda e, m: pbar.set_description(_delivery_report(e, m)),
+    #     )
+
+    # # Wait for any outstanding messages to be delivered and delivery report
+    # # callbacks to be triggered.
+    # p.flush()

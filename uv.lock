@@ -347,7 +347,7 @@ wheels = [
 [[package]]
 name = "lass"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "confluent-kafka" },
     { name = "lsst-alert-packet" },
@@ -358,15 +358,15 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "confluent-kafka", specifier = ">=2.14.2" },
-    { name = "lsst-alert-packet", git = "https://github.com/CanDIAPL/alert_packet.git" },
+    { name = "lsst-alert-packet", git = "https://github.com/CanDIAPL/alert_packet.git?rev=6e73a8b" },
     { name = "matplotlib", specifier = ">=3.11.0" },
     { name = "tqdm", specifier = ">=4.68.3" },
 ]
 
 [[package]]
 name = "lsst-alert-packet"
-version = "0.0.54"
-source = { git = "https://github.com/CanDIAPL/alert_packet.git#8450bfaca4ef3c290a00221172a98e52fb024d7e" }
+version = "0.0.55"
+source = { git = "https://github.com/CanDIAPL/alert_packet.git?rev=6e73a8b#6e73a8b19742ecd91a65e2a57dc8da23578636ac" }
 dependencies = [
     { name = "fastavro" },
     { name = "lsst-resources" },
