@@ -11,6 +11,7 @@ In general, `lass`'s generated alerts can be modified to simulate physical scena
 ## Features:
 * Generate millions of alerts with random data, aiming for realistic alert sizes (real alerts are on the order of 82 kb each). Note that by default simulated alerts are filled with unphysical data.
 * Easy switching of alert schema versions and ongoing compliance with version updates. LSST alerts are simulated using the [CanDIAPL fork](https://github.com/CanDIAPL/alert_packet) of LSST's [alert_packet repo](https://github.com/lsst/alert_packet). 
+  * The schemas are defined [here](https://github.com/lsst/alert_packet/tree/main/python/lsst/alert/packet/schema) and the schema documentation can be found [here](https://sdm-schemas.lsst.io/apdb.html).
 * Multiple kafka advertised listeners for container and host networking
 * Command line and Python interfaces
 * Custom and configurable alert generation allows for simulating realistic alert cadences and physical data.
@@ -95,7 +96,7 @@ Simulate a Rubin LSST Alert Broker with fake alerts and a kafka stream.
 options:
   -h, --help            show this help message and exit
   -n, --numalerts NUMALERTS
-                        Number of alerts to generate. (default: 10)
+                        Number of alerts to generate. (default: 10000)
   -p, --prvdiasources PRVDIASOURCES
                         Maximum number of prvDiaSources to generate in each alert. Actual number is random. (default: 0)
   -f, --fixed-prvdiasources
@@ -245,3 +246,58 @@ To change the configuration of the Kafka broker please modify `start-broker.sh`.
 ## Example Alerts
 
 Examples of generated alerts can be found in the `docs/` folder of this repo. See for example [example-alert-v10.json](docs/example-alert-v10.json)
+
+## API Reference
+
+Selected API reference. See docstrings for full details.
+
+#### `lass.generate()`
+
+Generate LSST alerts.
+
+```python
+def generate(
+    alertwriter : Callable[dict[str, Any], dict[str, Any]] = default_fastdb_writer,
+    numalerts : int = 10000,
+    nprvdiasources : int | tuple[int, int] = 0,
+    schema_ver: tuple[int, int] = (10,0),
+):
+```
+
+Args:
+
+    alertwriter: Callable[dict]
+        A callable function that writes data to the alert content.
+        By default uses `lass.default_fastdb_writer`.
+    numalerts: int
+        The number of alerts to generate.
+    nprvdiasources : int | tuple[int, int]
+        Number of alerts to include in `prvDiaSources`. If a tuple of two
+        ints, number will be between the two supplied integers.
+    schema_ver : tuple[int, int]
+        Tuple of (major_version, minor_version). (default: (10, 0)).
+
+Returns:
+
+    alerts : List[dict]
+        A list of the generated alerts. Each alert is a dictionary with fields
+        defined by the LSST schema used.
+    alertsizes : List[float)]
+        a list of the alert sizes in kilobytes (1kB = 1024 bits).
+
+#### `lass.send()`
+```python
+def send(
+    alerts: list[dict[str, Any]],
+    server: str = "localhost:19092",
+    topic: str = "lass-topic"
+):
+```
+
+#### `lass.startbroker()`
+
+Start the Kafka broker in a docker container named `lassbroker` and create a bridge network called `lassnet`.
+
+#### `lass.removebroker()`
+
+Remove `lassbroker` and delete `lassnet`.
