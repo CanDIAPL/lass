@@ -12,7 +12,6 @@ import lsst.alert.packet as lap
 import matplotlib.pyplot as plt
 import numpy as np
 from confluent_kafka import Producer
-from numpy.ma.core import sort
 from tqdm import tqdm
 from typing import Any, Callable, Dict, Tuple
 
@@ -35,6 +34,9 @@ def randomSmallInt():
     return int(np.random.randint(-2**15, 2**15 - 1, dtype=np.int16))
 
 def pprint_alert(alert: dict, save=False):
+    """Pretty print alerts in JSON format and redact the cutout bytes for brevity.
+    If `save` is True, save the alert in a file named 'example-alert.json'.
+    """
     alert["cutoutDifference"] = f"<redacted {len(alert['cutoutDifference'])} bytes>"
     alert["cutoutScience"]    = f"<redacted {len(alert['cutoutScience'])} bytes>"
     alert["cutoutTemplate"]   = f"<redacted {len(alert['cutoutTemplate'])} bytes>"
@@ -68,23 +70,31 @@ def generate(
     numalerts : int = 10000,
     nprvdiasources : int | tuple[int, int] = 0,
     schema_ver: tuple[int, int] = (10,0),
-    plotsizes: bool = False,
-    save: bool = False
+    # plotsizes: bool = False,
+    # save: bool = False
 ):
     """Generate LSST alerts.
 
     Args:
     ---
-        alertwriter (Callable[dict]): A callable function that writes data to the alert content. By default uses
-            `default_fastdb_writer`.
-        numalerts (int): The number of alerts to generate.
-        schema_ver (Tuple[int, int]): Tuple of (major_version, minor_version). (default: (10, 0)).
+        alertwriter: Callable[dict]
+            A callable function that writes data to the alert content.
+            By default uses `lass.default_fastdb_writer`.
+        numalerts: int
+            The number of alerts to generate.
+        nprvdiasources : int | tuple[int, int]
+            Number of alerts to include in `prvDiaSources`. If a tuple of two
+            ints, number will be between the two supplied integers.
+        schema_ver : tuple[int, int]
+            Tuple of (major_version, minor_version). (default: (10, 0)).
 
     Returns:
     ---
-        alerts (List[dict]) : A list of the generated alerts. Each alert is a dictionary with fields
+        alerts : List[dict]
+            A list of the generated alerts. Each alert is a dictionary with fields
             defined by the LSST schema used.
-        alertsizes (List[float)]): a list of the alert sizes in kilobytes (1kB = 1024 bits).
+        alertsizes : List[float)]
+            a list of the alert sizes in kilobytes (1kB = 1024 bits).
 
     """
     alerts = []
@@ -185,7 +195,7 @@ Simulate a Rubin LSST Alert Broker with fake alerts and a kafka stream.""", # fo
         "-n",
         "--numalerts",
         type=int,
-        default=10, # a few seconds worth of alerts (10000)
+        default=10000, # a few seconds worth of alerts (10000)
         help="Number of alerts to generate."
     )
     parser.add_argument(

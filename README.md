@@ -110,6 +110,9 @@ options:
 
 ### **Python Interface**
 
+The following is a minimal example of using the `lass` module to generate alerts, start 
+the broker containter, and send alerts to the broker:
+
 ```python
 import lass
 
@@ -119,6 +122,78 @@ lass.send(alerts)
 lass.plotAlertSizeDistibution(alertsizes)
 lass.pprint_alert(alerts[0], save=False)
 lass.removebroker()
+```
+
+#### **Custom Alert Generation**
+
+By default alerts are filled with nonsense data that is simply there to fill up bytes in a way that reflects real alerts sizes. This is useful for basic database benchmarking and bandwidth measurements, and not much else. 
+
+If we want a set of test alerts for a database that enforces relations between alert fields, or test alerts for emulating real astrophysical transients, we must modify the alert so that it satifies our use case. These modifications can range from very minor to extensive changes. 
+
+To allow for these use cases, the `lass.generate()` function accepts an `alertwriter` argument. The `alertwriter` is any function
+that accepts an alert packet in the form of a Python dictionary and returns an alert packet. 
+That is, for any given `alertwriter` function, `lass.generate()` calls 
+
+```python
+alert = alertwriter(alert)
+```
+
+after the schema compliant alert is generated. This means any `alertwriter` function can access and 
+overwrite any of the alert fields, and even add new (non-schema compliant) fields to the packet.
+
+The following is an example of an alert writer that makes sure a diaSource's diaObjectId matches its parent diaObjectId, i.e., an alert writer that enforces limited data consistency:
+
+```python
+def default_fastdb_writer(alert: dict[str, Any]):
+    # ...
+    # Match IDs
+    alert['diaObject']['diaObjectId'] = secrets.randbits(63)
+    alert['diaSource']['diaObjectId'] = alert['diaObject']['diaObjectId']
+    alert['diaSourceId'] = secrets.randbits(63)
+    alert['diaSource']['diaSourceId'] = alert['diaSourceId']
+    return alert
+```
+
+The alert writer can then be used with
+
+```python
+alerts, alertsizes = lass.generate(
+    alertwriter=default_fastdb_writer
+)
+```
+
+This alert writer is in fact used as the default alert writer by `lass`, as it enforces this and other basic
+data consistency modifications that are useful in all cases.
+
+Because `alertwriter`s are just functions, they can be composed together to have cumulative effects.
+For example, suppose we want the basic consistency edits that come from the default `lass.default_fastdb_writer` writer, but also want all of our alerts to appear to have come from the Small Magellanic Cloud. 
+
+We could achieve this by creating our own alert writer that writes to the relevant `ra` and `dec` fields in the alert packet and compose it with `lass`'s built in writer:
+
+```python
+def smc_radec_writer(alert):
+    alert = lass.default_fastdb_writer(alert)
+    alert['diaObject']['dec'] = -72.6977
+    alert['diaObject']['ra'] = 13.1867
+    alert['diaSource']['dec'] = -72.6977
+    alert['diaSource']['ra'] = 13.1867
+    return alert
+
+alerts, alertsizes = lass.generate(
+    alertwriter=smc_radec_writer
+)
+print(alerts[0]['diaObject']['ra'], alerts[0]['diaObject']['dec']) #  13.1867 -72.6977
+```
+
+Alert cutouts, the postage stamp size images that come with alert packets, can also be written to in this way:
+
+```python
+def cutout_writer(alert):
+    alert = lass.default_fastdb_writer(alert)
+    alert["cutoutDifference"] = # ...
+    alert["cutoutScience"]    = # ...
+    alert["cutoutTemplate"]   = # ...
+    return alert
 ```
 
 ### **Consuming alerts**
