@@ -1,17 +1,23 @@
 [project]
 name = "lass"
-version = "0.1.0"
+version = "0.1.1"
 description = "LSST Alert Stream Simulator and Broker"
 requires-python = ">=3.13"
+readme = "README.md"
+
 authors = [
     { name = "Mohammed Chamma" }
 ]
+
 dependencies = [
     "confluent-kafka>=2.14.2",
     "lsst-alert-packet",
     "matplotlib>=3.11.0",
     "tqdm>=4.68.3",
 ]
+
+[project.urls]
+Homepage = "https://github.com/CanDIAPL/lass"
 
 [project.scripts]
 lass = "lass.lassproducer:main"
