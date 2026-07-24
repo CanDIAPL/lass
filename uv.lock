@@ -35,6 +35,21 @@ wheels = [
 ]
 
 [[package]]
+name = "candiapl-lsst-alert-packet"
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "fastavro" },
+    { name = "lsst-resources" },
+    { name = "numpy" },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/80/30/d123630d46876cfc07cd688f9705692f2e11ef9eee55738826a5b99406c3/candiapl_lsst_alert_packet-0.1.0.tar.gz", hash = "sha256:b80441e350b8b668683dabb8b92785b94c3a44ca881deb8b51c7a7d9b8e50255", size = 174954, upload-time = "2026-07-24T18:48:45.826Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ac/14/778fce4a14920a711d0a506430e91cf2eda6495c50bc8934fd683b780720/candiapl_lsst_alert_packet-0.1.0-py3-none-any.whl", hash = "sha256:f02abdf78ee6f4b0daa4955e331efe30cf6a1c024f7ae2ac48879f8b868fcdc0", size = 220496, upload-time = "2026-07-24T18:48:44.494Z" },
+]
+
+[[package]]
 name = "certifi"
 version = "2026.6.17"
 source = { registry = "https://pypi.org/simple" }
@@ -346,32 +361,21 @@ wheels = [
 
 [[package]]
 name = "lass"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "." }
 dependencies = [
+    { name = "candiapl-lsst-alert-packet" },
     { name = "confluent-kafka" },
-    { name = "lsst-alert-packet" },
     { name = "matplotlib" },
     { name = "tqdm" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "candiapl-lsst-alert-packet", specifier = "==0.1.0" },
     { name = "confluent-kafka", specifier = ">=2.14.2" },
-    { name = "lsst-alert-packet", git = "https://github.com/CanDIAPL/alert_packet.git?rev=6e73a8b" },
     { name = "matplotlib", specifier = ">=3.11.0" },
     { name = "tqdm", specifier = ">=4.68.3" },
-]
-
-[[package]]
-name = "lsst-alert-packet"
-version = "0.0.55"
-source = { git = "https://github.com/CanDIAPL/alert_packet.git?rev=6e73a8b#6e73a8b19742ecd91a65e2a57dc8da23578636ac" }
-dependencies = [
-    { name = "fastavro" },
-    { name = "lsst-resources" },
-    { name = "numpy" },
-    { name = "requests" },
 ]
 
 [[package]]

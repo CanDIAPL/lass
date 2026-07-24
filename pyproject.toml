@@ -1,6 +1,6 @@
 [project]
 name = "lass"
-version = "0.1.1"
+version = "0.1.2"
 description = "LSST Alert Stream Simulator and Broker"
 requires-python = ">=3.13"
 readme = "README.md"
@@ -11,7 +11,8 @@ authors = [
 
 dependencies = [
     "confluent-kafka>=2.14.2",
-    "lsst-alert-packet",
+    # "lsst-alert-packet @ git+https://github.com/CanDIAPL/alert_packet.git@6e73a8b19742ecd91a65e2a57dc8da23578636ac",
+    "candiapl-lsst-alert-packet==0.1.0",
     "matplotlib>=3.11.0",
     "tqdm>=4.68.3",
 ]
@@ -26,5 +27,5 @@ lass = "lass.lassproducer:main"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.uv.sources]
-lsst-alert-packet = { git = "https://github.com/CanDIAPL/alert_packet.git", rev = '6e73a8b'}
+# [tool.uv.sources]
+# lsst-alert-packet = { git = "https://github.com/CanDIAPL/alert_packet.git", rev = '6e73a8b'}

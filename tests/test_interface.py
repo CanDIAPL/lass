@@ -20,8 +20,9 @@ def smc_radec_writer(alert):
     alert['diaSource']['ra'] = 13.1867
     return alert
 
-alerts, alertsizes = lass.generate(
-    alertwriter=smc_radec_writer
-)
-print(alerts[0]['diaObject']['diaObjectId'], alerts[0]['diaSource']['diaObjectId'])
-print(alerts[0]['diaObject']['ra'], alerts[0]['diaObject']['dec']) #  13.1867 -72.6977
+def test_writer():
+    alerts, alertsizes = lass.generate(
+        alertwriter=smc_radec_writer
+    )
+    print(alerts[0]['diaObject']['diaObjectId'], alerts[0]['diaSource']['diaObjectId'])
+    print(alerts[0]['diaObject']['ra'], alerts[0]['diaObject']['dec']) #  13.1867 -72.6977
