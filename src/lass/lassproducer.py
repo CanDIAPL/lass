@@ -65,20 +65,6 @@ def default_fastdb_writer(alert: dict[str, Any]):
     alert['diaSource']['diaSourceId'] = alert['diaSourceId']
     return alert
 
-def _prefer_non_null_dia_object(schema: dict[str, Any]) -> None:
-    """Make the simulator populate the nullable ``diaObject`` record.
-
-    ``lsst.alert.packet.simulate_alert`` selects the first member of an Avro
-    union.  Recent alert schemas put ``null`` first for ``diaObject``, but the
-    default FASTDB writer requires a populated object.  Put the non-null member
-    first before passing the schema to the simulator.
-    """
-    dia_object = next(
-        field for field in schema["fields"] if field["name"] == "diaObject"
-    )
-    if isinstance(dia_object["type"], list):
-        dia_object["type"].sort(key=lambda member: member == "null")
-
 def _get_alert_schema(schema_ver: tuple[int, int]) -> lap.Schema:
     schemafile = (
         lap.get_schema_path(*schema_ver)
@@ -129,7 +115,6 @@ def generate(
     """
     alerts = []
     schema = _get_alert_schema(schema_ver)
-    _prefer_non_null_dia_object(schema.definition)
     print(f"Schema: {schema.definition['name']}")
 
     arrayCount = {}
