@@ -65,6 +65,22 @@ def default_fastdb_writer(alert: dict[str, Any]):
     alert['diaSource']['diaSourceId'] = alert['diaSourceId']
     return alert
 
+def _get_alert_schema(schema_ver: tuple[int, int]) -> lap.Schema:
+    schemafile = (
+        lap.get_schema_path(*schema_ver)
+        + f"/lsst.v{schema_ver[0]}_{schema_ver[1]}.alert.avsc"
+    )
+    return lap.Schema.from_file(filename=schemafile)
+
+def _alert_serializer(
+    avro: bool = False,
+    schema_ver: tuple[int, int] = (10, 0),
+) -> Callable[[dict[str, Any]], bytes]:
+    """Return the selected Kafka payload serializer."""
+    if avro:
+        return _get_alert_schema(schema_ver).serialize
+    return pickle.dumps
+
 def generate(
     alertwriter : Callable[dict[str, Any], dict[str, Any]] = default_fastdb_writer,
     numalerts : int = 10000,
@@ -98,10 +114,7 @@ def generate(
 
     """
     alerts = []
-    schemafile = lap.get_schema_path(*schema_ver) + f"/lsst.v{schema_ver[0]}_{schema_ver[1]}.alert.avsc"
-    schema = lap.Schema.from_file(
-        filename=schemafile
-    )
+    schema = _get_alert_schema(schema_ver)
     print(f"Schema: {schema.definition['name']}")
 
     arrayCount = {}
@@ -141,10 +154,14 @@ def generate(
 def send(
     alerts: list[dict[str, Any]],
     server: str = "localhost:19092",
-    topic: str = "lass-topic"
+    topic: str = "lass-topic",
+    avro: bool = False,
+    schema_ver: tuple[int, int] = (10, 0),
 ):
+    """Send alerts to Kafka, serialized as pickle or schemaless Avro."""
     if len(alerts) == 0:
         return
+    serialize = _alert_serializer(avro=avro, schema_ver=schema_ver)
     p = Producer({
         "bootstrap.servers": server
     })
@@ -159,7 +176,7 @@ def send(
         # message has been successfully delivered or failed permanently.
         p.produce(
             topic,
-            pickle.dumps(alert),
+            serialize(alert),
             callback=lambda e, m: pbar.set_description(_delivery_report(e, m)),
         )
 
@@ -225,6 +242,11 @@ Simulate a Rubin LSST Alert Broker with fake alerts and a kafka stream.""", # fo
         help="Remove lass's kafka broker (along with the simulated alerts)",
     )
     parser.add_argument('--skipbroker', action='store_true', help="If set, do not start a kafka broker.")
+    parser.add_argument(
+        '--avro',
+        action='store_true',
+        help="Serialize Kafka message payloads as schemaless Avro instead of pickle.",
+    )
     args = parser.parse_args()
 
     if args.quit:
@@ -248,7 +270,7 @@ Simulate a Rubin LSST Alert Broker with fake alerts and a kafka stream.""", # fo
     if not is_lassbroker_running and not args.skipbroker:
         startbroker()
 
-    send(alerts)
+    send(alerts, avro=args.avro, schema_ver=schema_ver)
     # p = Producer({
     #     "bootstrap.servers": "localhost:19092"
     # })
