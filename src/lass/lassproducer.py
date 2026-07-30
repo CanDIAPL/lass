@@ -161,6 +161,8 @@ def send(
     """Send alerts to Kafka, serialized as pickle or schemaless Avro."""
     if len(alerts) == 0:
         return
+
+    # This assumes the schema_ver matches the schema version used to generate `alerts`
     serialize = _alert_serializer(avro=avro, schema_ver=schema_ver)
     p = Producer({
         "bootstrap.servers": server

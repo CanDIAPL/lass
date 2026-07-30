@@ -62,19 +62,6 @@ To send a million alerts to the kafka broker instead, or to send a million alert
 $ lass -n 1000000
 ```
 
-Kafka payloads use Python pickle by default. To publish schemaless Avro binary
-using the selected LSST alert schema instead, add `--avro`:
-
-```bash
-$ lass -n 100 --avro
-```
-
-The included consumer must use the matching option:
-
-```bash
-$ python -m lass.lassconsumer --avro
-```
-
 To send 100 alerts each linking to up to 100 'previous' alerts (i.e. with a populated `prvDiaSources` field), use `-p <int>`. 
 This will randomly fill each alert with between 0 and 100 `diaSources`. To generate alerts that all have the same length of `prvDiaSources`, include the `-f` flag.
 ```bash
@@ -84,6 +71,13 @@ $ lass -n 100 -p 100 -f # populate each alert's 'prvDiaSources' field with a lis
 To change the LSST Alert schema used, use `-s <major>`:
 ```bash
 $ lass -s 11 -n 100 # use the v11.0 schema and send 100 more alerts
+```
+
+By default, alerts are sent using Python's pickle module. 
+To publish schemaless Avro binary using the selected LSST alert schema instead, add `--avro`:
+
+```bash
+$ lass -n 100 --avro
 ```
 
 To cleanup, delete the kafka container and network, and release resources, do
@@ -255,6 +249,13 @@ $ docker network connect lassnet cool_lsst_database
 Your container code can now use `lassbroker:9092` as the kafka bootstrap server.
 
 To change the configuration of the Kafka broker please modify `start-broker.sh`.
+
+<!-- will be changing consumer API
+The included consumer must use the matching option:
+
+```bash
+$ python -m lass.lassconsumer --avro
+```-->
 
 ## Example Alerts
 
