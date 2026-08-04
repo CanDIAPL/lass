@@ -169,6 +169,8 @@ def send(
     })
 
     pbar = tqdm(alerts)
+    # this is a hack for when p.produce doesn't update the pbar description sometimes ¯\_(ツ)_/¯
+    pbar.set_description(f"Message delivered to {topic} [0]")
     for alert in pbar:
         # Trigger any available delivery report callbacks from previous produce() calls
         p.poll(0)
@@ -237,6 +239,13 @@ Simulate a Rubin LSST Alert Broker with fake alerts and a kafka stream.""", # fo
         default=10,
         help="The major version of the LSST alert schema to use. Defaults to v10 and the earliest minor version (i.e. v10-0)."
     )
+    parser.add_argument(
+        '-b',
+        '--batch',
+        type=int,
+        default=0,
+        help="Send batches of alerts as they are generated instead of waiting for all alerts to be generated."
+    )
     parser.add_argument('-v', '--version', action='version', version=importlib.metadata.version('lass'))
     parser.add_argument(
         '--quit',
@@ -258,12 +267,14 @@ Simulate a Rubin LSST Alert Broker with fake alerts and a kafka stream.""", # fo
     ###
     numalerts = args.numalerts
     schema_ver = (args.schemaversion, 0) # (Major, Minor)
+    batch = args.batch
 
-    alerts, _ = generate(
-        numalerts=numalerts,
-        schema_ver=schema_ver,
-        nprvdiasources=(0, args.prvdiasources) if args.fixed_prvdiasources else args.prvdiasources
-    )
+    batches = [numalerts] # no batches
+    if batch > 0 and batch < numalerts: # Send alerts in batches
+        # regular sized batches + leftover
+        batches = [batch]*(numalerts//batch) + [numalerts % batch]
+    elif batch < 0 or batch > numalerts:
+        print("Ignoring batch argument. Batch must be greater than 0 and less than numalerts.")
 
     cmd_dps = subprocess.run("docker ps | grep lassbroker | wc -l", shell=True, capture_output=True)
     is_lassbroker_running = (
@@ -271,26 +282,13 @@ Simulate a Rubin LSST Alert Broker with fake alerts and a kafka stream.""", # fo
     )
     if not is_lassbroker_running and not args.skipbroker:
         startbroker()
+        is_lassbroker_running = True
 
-    send(alerts, avro=args.avro, schema_ver=schema_ver)
-    # p = Producer({
-    #     "bootstrap.servers": "localhost:19092"
-    # })
-
-    # pbar = tqdm(alerts)
-    # for alert in pbar:
-    #     # Trigger any available delivery report callbacks from previous produce() calls
-    #     p.poll(0)
-
-    #     # Asynchronously produce a message. The delivery report callback will
-    #     # be triggered from the call to poll() above, or flush() below, when the
-    #     # message has been successfully delivered or failed permanently.
-    #     p.produce(
-    #         "lass-topic",
-    #         pickle.dumps(alert),
-    #         callback=lambda e, m: pbar.set_description(_delivery_report(e, m)),
-    #     )
-
-    # # Wait for any outstanding messages to be delivered and delivery report
-    # # callbacks to be triggered.
-    # p.flush()
+    for batch in batches:
+        alerts, _ = generate(
+            numalerts=batch,
+            schema_ver=schema_ver,
+            nprvdiasources=(0, args.prvdiasources) if args.fixed_prvdiasources else args.prvdiasources
+        )
+        if not args.skipbroker and is_lassbroker_running:
+            send(alerts, avro=args.avro, schema_ver=schema_ver)
