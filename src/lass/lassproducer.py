@@ -284,6 +284,7 @@ Simulate a Rubin LSST Alert Broker with fake alerts and a kafka stream.""", # fo
         startbroker()
         is_lassbroker_running = True
 
+    totalerts = 0
     for batch in batches:
         alerts, _ = generate(
             numalerts=batch,
@@ -292,3 +293,6 @@ Simulate a Rubin LSST Alert Broker with fake alerts and a kafka stream.""", # fo
         )
         if not args.skipbroker and is_lassbroker_running:
             send(alerts, avro=args.avro, schema_ver=schema_ver)
+        totalerts = totalerts + batch
+        if len(batches) > 1:
+            print(f"Handled {totalerts} of {numalerts} alerts")
