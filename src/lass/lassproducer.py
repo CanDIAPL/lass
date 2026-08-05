@@ -9,6 +9,7 @@ from importlib import resources
 from pathlib import PosixPath
 
 import lsst.alert.packet as lap
+from lsst.alert.packet.simulate import randomBytes
 import matplotlib.pyplot as plt
 import numpy as np
 from confluent_kafka import Producer
@@ -63,6 +64,12 @@ def default_fastdb_writer(alert: dict[str, Any]):
     alert['diaSource']['diaObjectId'] = alert['diaObject']['diaObjectId']
     alert['diaSourceId'] = secrets.randbits(63)
     alert['diaSource']['diaSourceId'] = alert['diaSourceId']
+
+    # regenerate cutouts
+    cutoutsize = len(alert['cutoutScience']) # pick a size from one of the cutouts (1-32kb by default)
+    alert['cutoutDifference'] = randomBytes(cutoutsize, cutoutsize)
+    alert['cutoutScience']    = randomBytes(cutoutsize, cutoutsize)
+    alert['cutoutTemplate']   = randomBytes(cutoutsize, cutoutsize)
     return alert
 
 def _get_alert_schema(schema_ver: tuple[int, int]) -> lap.Schema:
@@ -273,6 +280,7 @@ Simulate a Rubin LSST Alert Broker with fake alerts and a kafka stream.""", # fo
     if batch > 0 and batch < numalerts: # Send alerts in batches
         # regular sized batches + leftover
         batches = [batch]*(numalerts//batch) + [numalerts % batch]
+        assert sum(batches) == numalerts
     elif batch < 0 or batch > numalerts:
         print("Ignoring batch argument. Batch must be greater than 0 and less than numalerts.")
 
