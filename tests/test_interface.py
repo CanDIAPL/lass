@@ -11,7 +11,6 @@ def test_minimal():
     lass.removebroker()
     assert len(alerts) == 10000
 
-
 def smc_radec_writer(alert):
     alert = lass.default_fastdb_writer(alert)
     alert['diaObject']['dec'] = -72.6977
@@ -26,3 +25,9 @@ def test_writer():
     )
     print(alerts[0]['diaObject']['diaObjectId'], alerts[0]['diaSource']['diaObjectId'])
     print(alerts[0]['diaObject']['ra'], alerts[0]['diaObject']['dec']) #  13.1867 -72.6977
+
+def test_context_manager():
+    with lass.broker():
+        alerts, _ = lass.generate()
+        lass.send(alerts)
+        lass.pprint_alert(alerts[0], save=False)

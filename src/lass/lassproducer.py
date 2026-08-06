@@ -196,11 +196,30 @@ def send(
 
 def startbroker():
     ref = _get_ref('scripts', 'start-broker.sh')
-    subprocess.run(ref)
+    return subprocess.run(ref)
 
 def removebroker():
     ref = _get_ref('scripts', 'remove-broker.sh')
-    subprocess.run(ref)
+    return subprocess.run(ref)
+
+class broker:
+    """Broker convenience class for use with the `with` block
+    Starts the broker container and removes it at the end of the `with` block.
+    For example:
+
+        ```
+        import lass
+        with lass.broker():
+            alerts, _ = lass.generate()
+            lass.send(alerts)
+            lass.pprint_alert(alerts[0], save=False)
+        ```
+    """
+    def __enter__(self):
+        return startbroker()
+
+    def __exit__(self, exc_type, exc_value, trace):
+        return removebroker()
 
 class RawAndDefaultsHelpFormatter( # ty https://stackoverflow.com/questions/61324536/
     argparse.RawDescriptionHelpFormatter, argparse.ArgumentDefaultsHelpFormatter
