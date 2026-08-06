@@ -68,7 +68,6 @@ def default_fastdb_writer(alert: dict[str, Any]):
     # regenerate cutouts
     cutoutsize = len(alert['cutoutScience']) # pick a size from one of the cutouts (1-32kb by default)
     alert['cutoutDifference'] = randomBytes(cutoutsize, cutoutsize)
-    alert['cutoutScience']    = randomBytes(cutoutsize, cutoutsize)
     alert['cutoutTemplate']   = randomBytes(cutoutsize, cutoutsize)
     return alert
 
