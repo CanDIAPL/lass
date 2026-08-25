@@ -65,6 +65,22 @@ def default_fastdb_writer(alert: dict[str, Any]):
     alert['diaSourceId'] = secrets.randbits(63)
     alert['diaSource']['diaSourceId'] = alert['diaSourceId']
 
+    # Realistic ra and dec since fastdb does a cone search to link root object ids
+    # set the diaobject, diasource, and prvdiasources to the same position
+    ra = np.random.random()*360
+    dec = np.random.random() * (90+30) - 90 # rubin can't see above +30 dec
+    alert['diaObject']['ra']  = ra
+    alert['diaObject']['dec'] = dec
+    alert['diaSource']['ra']  = ra
+    alert['diaSource']['dec'] = dec
+    if alert['prvDiaSources']:
+        for d in alert['prvDiaSources']:
+            d['diaSource']['ra']  = ra
+            d['diaSource']['dec'] = dec
+
+    # Useful/convenience edits
+    alert['observation_reason'] = 'lass-sim-alert'
+
     # regenerate cutouts
     cutoutsize = len(alert['cutoutScience']) # pick a size from one of the cutouts (1-32kb by default)
     alert['cutoutDifference'] = randomBytes(cutoutsize, cutoutsize)
