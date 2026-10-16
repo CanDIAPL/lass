@@ -14,6 +14,7 @@ In general, `lass`'s generated alerts can be modified to simulate physical scena
   * The schemas are defined [here](https://github.com/lsst/alert_packet/tree/main/python/lsst/alert/packet/schema) and the schema documentation can be found [here](https://sdm-schemas.lsst.io/apdb.html).
 * Multiple kafka advertised listeners for container and host networking
 * Command line and Python interfaces
+* Send alerts in batches as they are generated 
 * Custom and configurable alert generation allows for simulating realistic alert cadences and physical data.
   * Configurable `prvDiaSources` field. This field is important for generating long running lightcurves.
   * Pass a custom `alertwriter` function to write any data to any field within the alert packet.
@@ -61,6 +62,11 @@ To send a million alerts to the kafka broker instead, or to send a million alert
 ```bash
 $ lass -n 1000000
 ```
+Sending many alerts can be expensive on a system's memory. To send 1 million alerts in batches of 10000, use the `-b` or `--batch` option:
+
+```bash
+$ lass -n 1000000 -b 10000
+```
 
 To send 100 alerts each linking to up to 100 'previous' alerts (i.e. with a populated `prvDiaSources` field), use `-p <int>`. 
 This will randomly fill each alert with between 0 and 100 `diaSources`. To generate alerts that all have the same length of `prvDiaSources`, include the `-f` flag.
@@ -91,8 +97,7 @@ Removing network: lassnet
 For full usage info do `lass --help`: <!-- update with :r!lass --help -->
 ```bash
 $ lass --help
-usage: lass [-h] [-n NUMALERTS] [-p PRVDIASOURCES] [-f] [-s SCHEMAVERSION]
-            [-v] [--quit] [--skipbroker]
+usage: lass [-h] [-n NUMALERTS] [-p PRVDIASOURCES] [-f] [-s SCHEMAVERSION] [-b BATCH] [-v] [--quit] [--skipbroker] [--avro]
 
 ▄▄     ▄▄▄   ▄▄▄▄  ▄▄▄▄
 ██    ██▀██ ███▄▄ ███▄▄
@@ -109,11 +114,12 @@ options:
   -f, --fixed-prvdiasources
                         If set, all alerts will have the same number of prvDiaSources supplied. (default: False)
   -s, --schemaversion SCHEMAVERSION
-                        The major version of the LSST alert schema to use.
-                        Defaults to v10 and the earliest minor version (i.e. v10-0). (default: 10)
+                        The major version of the LSST alert schema to use. Defaults to v10 and the earliest minor version (i.e. v10-0). (default: 10)
+  -b, --batch BATCH     Send batches of alerts as they are generated instead of waiting for all alerts to be generated. (default: 0)
   -v, --version         show program's version number and exit
   --quit                Remove lass's kafka broker (along with the simulated alerts) (default: False)
   --skipbroker          If set, do not start a kafka broker. (default: False)
+  --avro                Serialize Kafka message payloads as schemaless Avro instead of pickle. (default: False)
 ```
 
 ### **Python Interface**
@@ -130,6 +136,15 @@ lass.send(alerts)
 lass.plotAlertSizeDistibution(alertsizes)
 lass.pprint_alert(alerts[0], save=False)
 lass.removebroker()
+```
+
+A context manager is also provided with `lass`, which allows you to avoid calling `lass.startbroker()` and `lass.removebroker()`:
+
+```python
+with lass.broker():
+    alerts, _ = lass.generate()
+    lass.send(alerts)
+    lass.pprint_alert(alerts[0], save=False)
 ```
 
 #### **Custom Alert Generation**
@@ -170,8 +185,7 @@ alerts, alertsizes = lass.generate(
 )
 ```
 
-This alert writer is in fact used as the default alert writer by `lass`, as it enforces this and other basic
-data consistency modifications that are useful in all cases.
+This alert writer is in fact used as the default alert writer by `lass`, as it enforces this and other basic data consistency modifications that are useful in all cases. These include making sure cutouts within an alert are all the same size, and setting the RA/DEC of each alert to a value that is actually within Rubin's field of view.
 
 Because `alertwriter`s are just functions, they can be composed together to have cumulative effects.
 For example, suppose we want the basic consistency edits that come from the default `lass.default_fastdb_writer` writer, but also want all of our alerts to appear to have come from the Small Magellanic Cloud. 
